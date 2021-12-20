@@ -13,7 +13,7 @@ struct effect_s StaticColorEffect =
 
 static Adafruit_NeoPixel * stage;
 
-unsigned int static_colors[] = {(unsigned int)0x00FFFFFF, (unsigned int)0x0000FF00, (unsigned int)0x000000FF};
+unsigned int static_colors[] = {(unsigned int)0x0000FF00, (unsigned int)0x0030CC00, (unsigned int)0x0099FF00, (unsigned int)0x00FF0000, (unsigned int)0x0000AAAA, (unsigned int)0x000000FF, (unsigned int)0x00BB00BB, (unsigned int)0x0044FF44, (unsigned int)0x00CCCCCC};
 uint8_t current_color_index = 0;
 
 void initStaticEffect(Adafruit_NeoPixel * pixels)

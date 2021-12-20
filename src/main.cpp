@@ -5,10 +5,10 @@
 #include "effects.h"
 
 #define PIXEL_DATA_PIN  12
-#define COLOR_CYCLE_BUTTON_PIN  5
-#define EFFECT_BUTTON_PIN       7
-#define BRIGHTNESS_BUTTON_PIN   3
-#define BUTTON_DEBOUNCE_COOLDOWN_MS 200
+#define BUTTON_INTERRUPT_PIN    2
+#define COLOR_CYCLE_BUTTON_PIN  4
+#define EFFECT_BUTTON_PIN       6
+#define BRIGHTNESS_BUTTON_PIN   8
 
 Adafruit_NeoPixel Stage;
 
@@ -20,7 +20,7 @@ struct effect_s * Effects[] =
 uint8_t CurrentEffectIndex = 0;
 
 const int BrightnessLevels[] = {0, 15, 45, 100, 180, 255};
-uint8_t BrightnessIndex = 0;
+uint8_t BrightnessIndex = 2;
 
 void setupButtons();
 
@@ -51,7 +51,7 @@ void loop()
     static unsigned long last_millis = 0;
 
     //Poll button pins for changes if no interrupt is attached to them.
-    #if (digitalPinToInterrupt(BRIGHTNESS_BUTTON_PIN) == NOT_AN_INTERRUPT)
+    /*#if (digitalPinToInterrupt(BRIGHTNESS_BUTTON_PIN) == NOT_AN_INTERRUPT)
     changeBrightnessFlag = !digitalRead(BRIGHTNESS_BUTTON_PIN);
     #endif
     #if (digitalPinToInterrupt(COLOR_CYCLE_BUTTON_PIN) == NOT_AN_INTERRUPT)
@@ -59,7 +59,7 @@ void loop()
     #endif
     #if (digitalPinToInterrupt(EFFECT_BUTTON_PIN) == NOT_AN_INTERRUPT)
     changeEffectFlag = !digitalRead(EFFECT_BUTTON_PIN);
-    #endif
+    #endif*/
 
     if(changeBrightnessFlag)
     {
@@ -68,6 +68,7 @@ void loop()
         {
             BrightnessIndex = 0;
         }
+        Stage.setBrightness(BrightnessLevels[BrightnessIndex]);
         changeBrightnessFlag = false;
     }
     if(changeColorFlag)
@@ -115,12 +116,21 @@ void changeEffect()
     changeEffectFlag = true;
 }
 
+void handleButtons()
+{
+    changeBrightnessFlag = !digitalRead(BRIGHTNESS_BUTTON_PIN);
+    changeColorFlag = !digitalRead(COLOR_CYCLE_BUTTON_PIN);
+    changeEffectFlag = !digitalRead(EFFECT_BUTTON_PIN);
+    Serial.println("Button press detected.");
+}
+
 void setupButtons()
 {
-    pinMode(BRIGHTNESS_BUTTON_PIN, INPUT);
-    pinMode(COLOR_CYCLE_BUTTON_PIN, INPUT);
-    pinMode(EFFECT_BUTTON_PIN, INPUT);
-    #if (digitalPinToInterrupt(BRIGHTNESS_BUTTON_PIN) != NOT_AN_INTERRUPT)
+    pinMode(BRIGHTNESS_BUTTON_PIN, INPUT_PULLUP);
+    pinMode(COLOR_CYCLE_BUTTON_PIN, INPUT_PULLUP);
+    pinMode(EFFECT_BUTTON_PIN, INPUT_PULLUP);
+    pinMode(BUTTON_INTERRUPT_PIN, INPUT_PULLUP);
+    /*#if (digitalPinToInterrupt(BRIGHTNESS_BUTTON_PIN) != NOT_AN_INTERRUPT)
     attachInterrupt(digitalPinToInterrupt(BRIGHTNESS_BUTTON_PIN), changeBrightness, FALLING);
     #endif
     #if (digitalPinToInterrupt(COLOR_CYCLE_BUTTON_PIN) != NOT_AN_INTERRUPT)
@@ -128,5 +138,6 @@ void setupButtons()
     #endif
     #if (digitalPinToInterrupt(EFFECT_BUTTON_PIN) != NOT_AN_INTERRUPT)
     attachInterrupt(digitalPinToInterrupt(EFFECT_BUTTON_PIN), changeEffect, FALLING);
-    #endif
+    #endif*/
+    attachInterrupt(digitalPinToInterrupt(BUTTON_INTERRUPT_PIN), handleButtons, FALLING);
 }
