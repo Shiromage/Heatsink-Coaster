@@ -16,14 +16,16 @@ volatile unsigned long brightness_button_debounce_alarm, color_button_debounce_a
 Adafruit_NeoPixel Stage;
 
 extern struct effect_s StaticColorEffect;
+extern struct effect_s OrbitEffect;
 struct effect_s * Effects[] =
 {
-    &StaticColorEffect
+    &StaticColorEffect,
+    &OrbitEffect
 };
 uint8_t CurrentEffectIndex = 0;
 
-const int BrightnessLevels[] = {0, 15, 45, 100, 180, 255};
-uint8_t BrightnessIndex = 2;
+const int BrightnessLevels[] = {0, 12, 30, 50, 180, 255};
+uint8_t BrightnessIndex = 1;
 
 void setupButtons();
 
@@ -37,6 +39,8 @@ void setup()
         setupButtons();
         Stage.begin();
         Effects[CurrentEffectIndex]->init(&Stage);
+        Stage.setBrightness(BrightnessLevels[BrightnessIndex]);
+        delay(1000);
         Serial.println("Setup complete");
     }
     else
@@ -51,16 +55,6 @@ void loop()
     static unsigned long last_millis = 0;
     unsigned long current_millis = millis();
 
-    //Poll button pins for changes if no interrupt is attached to them.
-    /*#if (digitalPinToInterrupt(BRIGHTNESS_BUTTON_PIN) == NOT_AN_INTERRUPT)
-    changeBrightnessFlag = !digitalRead(BRIGHTNESS_BUTTON_PIN);
-    #endif
-    #if (digitalPinToInterrupt(COLOR_CYCLE_BUTTON_PIN) == NOT_AN_INTERRUPT)
-    changeColorFlag = !digitalRead(COLOR_CYCLE_BUTTON_PIN);
-    #endif
-    #if (digitalPinToInterrupt(EFFECT_BUTTON_PIN) == NOT_AN_INTERRUPT)
-    changeEffectFlag = !digitalRead(EFFECT_BUTTON_PIN);
-    #endif*/
     const unsigned long brightness_alarm = brightness_button_debounce_alarm;
     const unsigned long color_alarm = color_button_debounce_alarm;
     const unsigned long effect_alarm = effect_button_debounce_alarm;
@@ -106,7 +100,7 @@ void loop()
     }
 
     Stage.clear();
-    Effects[CurrentEffectIndex]->step(last_millis - current_millis);
+    Effects[CurrentEffectIndex]->step(current_millis - last_millis);
     Stage.show();
 
     last_millis = current_millis;
@@ -136,14 +130,5 @@ void setupButtons()
     pinMode(COLOR_CYCLE_BUTTON_PIN, INPUT_PULLUP);
     pinMode(EFFECT_BUTTON_PIN, INPUT_PULLUP);
     pinMode(BUTTON_INTERRUPT_PIN, INPUT_PULLUP);
-    /*#if (digitalPinToInterrupt(BRIGHTNESS_BUTTON_PIN) != NOT_AN_INTERRUPT)
-    attachInterrupt(digitalPinToInterrupt(BRIGHTNESS_BUTTON_PIN), changeBrightness, FALLING);
-    #endif
-    #if (digitalPinToInterrupt(COLOR_CYCLE_BUTTON_PIN) != NOT_AN_INTERRUPT)
-    attachInterrupt(digitalPinToInterrupt(COLOR_CYCLE_BUTTON_PIN), changeColor, FALLING);
-    #endif
-    #if (digitalPinToInterrupt(EFFECT_BUTTON_PIN) != NOT_AN_INTERRUPT)
-    attachInterrupt(digitalPinToInterrupt(EFFECT_BUTTON_PIN), changeEffect, FALLING);
-    #endif*/
     attachInterrupt(digitalPinToInterrupt(BUTTON_INTERRUPT_PIN), handleButtons, FALLING);
 }

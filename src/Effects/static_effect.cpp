@@ -1,7 +1,7 @@
 #include "effects.h"
 
 void initStaticEffect(Adafruit_NeoPixel *);
-void stepStaticEffect(long);
+void stepStaticEffect(unsigned long);
 void changeStaticColor();
 
 struct effect_s StaticColorEffect =
@@ -13,7 +13,16 @@ struct effect_s StaticColorEffect =
 
 static Adafruit_NeoPixel * stage;
 
-unsigned int static_colors[] = {(unsigned int)0x0000FF00, (unsigned int)0x0030CC00, (unsigned int)0x0099FF00, (unsigned int)0x00FF0000, (unsigned int)0x0000AAAA, (unsigned int)0x000000FF, (unsigned int)0x00BB00BB, (unsigned int)0x0044FF44, (unsigned int)0x00CCCCCC};
+uint32_t static_colors[] =
+{
+    Adafruit_NeoPixel::Color(255, 255, 255),
+    Adafruit_NeoPixel::Color(255, 200, 0),
+    Adafruit_NeoPixel::Color(255, 0, 0),
+    Adafruit_NeoPixel::Color(0, 255, 0),
+    Adafruit_NeoPixel::Color(0, 0, 255),
+    Adafruit_NeoPixel::Color(0, 255, 255),
+    Adafruit_NeoPixel::Color(255, 0, 255)
+};
 uint8_t current_color_index = 0;
 
 void initStaticEffect(Adafruit_NeoPixel * pixels)
@@ -22,14 +31,14 @@ void initStaticEffect(Adafruit_NeoPixel * pixels)
     Serial.println("Static setup");
 }
 
-void stepStaticEffect(long millis)
+void stepStaticEffect(unsigned long millis)
 {
     stage->fill(static_colors[current_color_index]);
 }
 
 void changeStaticColor()
 {
-    if(++current_color_index == sizeof(static_colors) / sizeof(unsigned int))
+    if(++current_color_index == sizeof(static_colors) / sizeof(uint32_t))
     {
         current_color_index = 0;
     }
