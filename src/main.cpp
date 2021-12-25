@@ -17,10 +17,12 @@ Adafruit_NeoPixel Stage;
 
 extern struct effect_s StaticColorEffect;
 extern struct effect_s OrbitEffect;
+extern struct effect_s RainbowEffect;
 struct effect_s * Effects[] =
 {
     &StaticColorEffect,
-    &OrbitEffect
+    &OrbitEffect,
+    &RainbowEffect
 };
 uint8_t CurrentEffectIndex = 0;
 
