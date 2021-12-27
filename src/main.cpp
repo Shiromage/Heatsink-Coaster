@@ -11,7 +11,7 @@
 #define BRIGHTNESS_BUTTON_PIN   8
 #define BUTTON_DEBOUNCE_COOLDOWN_MS 40
 
-#define STARTUP_EFFECT_RUNTIME_MS  10000
+#define STARTUP_EFFECT_RUNTIME_MS  13000
 
 volatile unsigned long brightness_button_debounce_alarm, color_button_debounce_alarm, effect_button_debounce_alarm;
 
@@ -54,6 +54,7 @@ void setup()
         {
             unsigned long old_time = current_time;
             current_time = millis();
+            Stage.clear();
             StartupEffect.step(current_time - old_time);
             Stage.show();
         }while(current_time < end_startup_time);
