@@ -2,7 +2,7 @@
 
 #define ORB_COUNT   6
 //Size in LEDs
-#define ORB_SIZE    1
+#define ORB_SIZE    2.5
 
 //Ticks per revolution
 #define ORB_POSITION_ONE_REV    65535
@@ -10,6 +10,8 @@
 #define OPACITY_MAX 65535
 #define OPACITY_TWINKLE_HIGH    OPACITY_MAX
 #define OPACITY_TWINKLE_LOW 50
+
+#define BRIGHTNESS_MAX  255
 
 extern void initStartup(Adafruit_NeoPixel *);
 extern void stepStartup(unsigned long);
@@ -70,9 +72,10 @@ Orb Orbs[ORB_COUNT];
 
 void rectifyOrbs();
 void drawOrbs();
+uint32_t apply_brightness(uint8_t, uint32_t);
 uint8_t convert_position_to_bucket(int32_t);
-uint8_t convert_position_to_led(int32_t);
 int32_t convert_led_to_position(uint8_t);
+uint8_t convert_bucket_to_led(int32_t);
 
 void initStartup(Adafruit_NeoPixel * pixels)
 {
@@ -133,7 +136,7 @@ void stepStartup(unsigned long millis)
             if((Orbs[0].velocity < 0 && velocity_change < 0) || (Orbs[0].velocity >= 0 && velocity_change > 0))
             {
                 Orbs[0].velocity = 0;
-                Serial.println(" Entering STAGE_DELAY1");
+                Serial.println("Entering STAGE_DELAY1");
                 CurrentStage = STAGE_DELAY1;
             }
             rectifyOrbs();
@@ -188,23 +191,59 @@ void drawOrbs()
             continue;
         }
 
-        int32_t upper_bound = Orbs[index].angle_position + (ORB_SIZE * (65535.0 / PIXEL_COUNT) / 2.0);
-        int32_t lower_bound = Orbs[index].angle_position - (ORB_SIZE * (65535.0 / PIXEL_COUNT) / 2.0);
+        int32_t upper_bound = Orbs[index].angle_position + (ORB_SIZE * (ORB_POSITION_ONE_REV / PIXEL_COUNT) / 2);
+        int32_t lower_bound = Orbs[index].angle_position - (ORB_SIZE * (ORB_POSITION_ONE_REV / PIXEL_COUNT) / 2);
 
         uint8_t bucket = convert_position_to_bucket(upper_bound);
         uint8_t end_bucket = convert_position_to_bucket(lower_bound);
         int32_t led_position;
+        uint32_t brightness, scaled_color;
         while(bucket != end_bucket)
         {
             led_position = convert_led_to_position(bucket);
-            int16_t brightness = OPACITY_MAX * abs(led_position - Orbs[index].angle_position) /
-                (float)(upper_bound - lower_bound);
-            Pixels->setPixelColor(convert_position_to_led(led_position), Orbs[index].color);
+            //The further away an led is from the center of the orb, the dimmer it is.
+            if(abs(led_position - Orbs[index].angle_position) > (upper_bound - lower_bound) / 2)
+            {
+                brightness = 0;
+            }
+            else
+            {
+                brightness = map(abs(led_position - Orbs[index].angle_position), 0, (upper_bound - lower_bound) / 2, (uint32_t)Orbs[index].opacity * BRIGHTNESS_MAX / OPACITY_MAX, 0);
+            }
+            scaled_color = apply_brightness(brightness, Orbs[index].color);
+            Pixels->setPixelColor(convert_bucket_to_led(bucket), scaled_color);
             bucket--;
         }
         led_position = convert_led_to_position(bucket);
-        Pixels->setPixelColor(convert_position_to_led(led_position), Orbs[index].color);
+        if(abs(led_position - Orbs[index].angle_position) > (upper_bound - lower_bound) / 2)
+        {
+            brightness = 0;
+        }
+        else
+        {
+            brightness = map(abs(led_position - Orbs[index].angle_position), 0, (upper_bound - lower_bound) / 2, (uint32_t)Orbs[index].opacity * BRIGHTNESS_MAX / OPACITY_MAX, 0);
+        }
+        scaled_color = apply_brightness(brightness, Orbs[index].color);
+        Pixels->setPixelColor(convert_bucket_to_led(bucket), scaled_color);
     }
+}
+
+//Scale the brightness of a color by the brightness value given
+uint32_t apply_brightness(uint8_t brightness, uint32_t base_color)
+{
+    uint32_t red, green, blue;
+    red = base_color & 0x00FF0000;
+    green = base_color & 0x0000FF00;
+    blue = base_color & 0xFF;
+
+    red = red >> 16;
+    green = green >> 8;
+
+    red = (red * brightness) / BRIGHTNESS_MAX; //Scale element with brightness
+    green = (green * brightness) / BRIGHTNESS_MAX;
+    blue = (blue * brightness) / BRIGHTNESS_MAX;
+
+    return Adafruit_NeoPixel::Color(red, green, blue);
 }
 
 uint8_t convert_position_to_bucket(int32_t position)
@@ -212,17 +251,16 @@ uint8_t convert_position_to_bucket(int32_t position)
     return position * PIXEL_COUNT / ORB_POSITION_ONE_REV;
 }
 
-uint8_t convert_position_to_led(int32_t position)
-{
-    int16_t led = position * PIXEL_COUNT / ORB_POSITION_ONE_REV;
-    while(led < 0)
-        led += PIXEL_COUNT;
-    while(led >= PIXEL_COUNT)
-        led -= PIXEL_COUNT;
-    return led;
-}
-
 int32_t convert_led_to_position(uint8_t led)
 {
-    return (65535.0 / PIXEL_COUNT) * led;
+    return led * ORB_POSITION_ONE_REV / PIXEL_COUNT;
+}
+
+uint8_t convert_bucket_to_led(int32_t bucket)
+{
+    while(bucket < 0)
+        bucket += PIXEL_COUNT;
+    while(bucket >= PIXEL_COUNT)
+        bucket -= PIXEL_COUNT;
+    return bucket;
 }
