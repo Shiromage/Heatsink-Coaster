@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
+#include "system.h"
 #include "heap.h"
 #include "effects.h"
 
