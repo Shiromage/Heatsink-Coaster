@@ -6,11 +6,10 @@
 
 //Ticks per revolution
 #define ORB_POSITION_ONE_REV    65535
-
 #define OPACITY_MAX 65535
-#define OPACITY_TWINKLE_HIGH    OPACITY_MAX
-#define OPACITY_TWINKLE_LOW 50
 
+#define HUE_MAX 65535
+#define SATURATION_MAX  255
 #define BRIGHTNESS_MAX  255
 
 extern void initStartup(Adafruit_NeoPixel *);
@@ -25,14 +24,24 @@ struct effect_s StartupEffect =
 
 Adafruit_NeoPixel * Pixels;
 
+const uint16_t OrbHues[ORB_COUNT] =
+{
+    0 * (HUE_MAX / 360), //Red
+    25 * (HUE_MAX / 360), //Orange
+    42 * (HUE_MAX / 360), //Yellow
+    95 * (HUE_MAX / 360), //Green
+    215 * (HUE_MAX / 360), //Blue
+    310 * (HUE_MAX / 360), //Purple
+};
+
 const uint32_t OrbColors[ORB_COUNT] =
 {
-    Adafruit_NeoPixel::Color(255, 0 ,0), //Red
-    Adafruit_NeoPixel::Color(255, 220, 0), //Yellow
-    Adafruit_NeoPixel::Color(0, 255, 0), //Green
-    Adafruit_NeoPixel::Color(0, 220, 220), //Cyan
-    Adafruit_NeoPixel::Color(0, 0, 255), //Blue
-    Adafruit_NeoPixel::Color(190, 0, 190)  //Purple
+    Adafruit_NeoPixel::ColorHSV(OrbHues[0], 255, 255), //Red
+    Adafruit_NeoPixel::ColorHSV(OrbHues[1], 255, 255), //Yellow
+    Adafruit_NeoPixel::ColorHSV(OrbHues[2], 255, 255), //Orange
+    Adafruit_NeoPixel::ColorHSV(OrbHues[3], 255, 255), //Green
+    Adafruit_NeoPixel::ColorHSV(OrbHues[4], 255, 255), //Blue
+    Adafruit_NeoPixel::ColorHSV(OrbHues[5], 255, 220)  //Purple
 };
 
 enum startup_stage
@@ -54,6 +63,12 @@ enum startup_stage
 #define STAGE_SLOWDOWN_ACCEL    (-30000)
 
 #define STAGE_DELAY1_MS 1000
+
+#define STAGE_TWINKLE_OPACITY_HIGH  OPACITY_MAX
+#define STAGE_TWINKLE_OPACITY_LOW   (STAGE_TWINKLE_OPACITY_HIGH * 5/8)
+#define STAGE_TWINKLE_TT_OPACITY_HIGH_MS    500
+#define STAGE_TWINKLE_TT_OPACITY_LOW_MS     1000
+#define STAGE_TWINKLE_CONSECUTIVE_ORB_DELAY 300
 
 #define STAGE_DELAY2_MS 600
 
@@ -143,14 +158,40 @@ void stepStartup(unsigned long millis)
         }break;
         case STAGE_DELAY1:
         {
+            delay(STAGE_DELAY1_MS);
+            current_micros = micros();
+            Serial.println("Entering STAGE_TWINKLE");
             CurrentStage = STAGE_TWINKLE;
         }break;
         case STAGE_TWINKLE:
         {
-            CurrentStage = STAGE_DELAY2;
+            uint32_t opacity_change;
+            for(index_orb = 0; index_orb < ORB_COUNT; index_orb++)
+            {
+                if(Orbs[index_orb].saturation < SATURATION_MAX)
+                {
+                    uint32_t saturation_change = delta_micros * ((uint32_t)SATURATION_MAX) / ((uint32_t)STAGE_TWINKLE_TT_OPACITY_HIGH_MS * (uint32_t)1000UL);
+                    opacity_change = delta_micros * (OPACITY_MAX - STAGE_INTRO_MAX_OPACITY) / (STAGE_TWINKLE_TT_OPACITY_HIGH_MS * 1000UL);
+                    Orbs[index_orb].opacity = (opacity_change + Orbs[index_orb].opacity > OPACITY_MAX) ? OPACITY_MAX : (opacity_change + Orbs[index_orb].opacity);
+                    Orbs[index_orb].saturation = (saturation_change + Orbs[index_orb].saturation > SATURATION_MAX) ? SATURATION_MAX : (saturation_change + Orbs[index_orb].saturation);
+                    Orbs[index_orb].color = Adafruit_NeoPixel::gamma32(Adafruit_NeoPixel::ColorHSV(OrbHues[index_orb], Orbs[index_orb].saturation, BRIGHTNESS_MAX));
+                }
+                else if(Orbs[index_orb].opacity > STAGE_TWINKLE_OPACITY_LOW)
+                {
+                    opacity_change = delta_micros * (OPACITY_MAX - STAGE_TWINKLE_OPACITY_LOW) / (STAGE_TWINKLE_TT_OPACITY_LOW_MS * 1000UL);
+                    Orbs[index_orb].opacity = (Orbs[index_orb].opacity - opacity_change < STAGE_TWINKLE_OPACITY_LOW) ? STAGE_TWINKLE_OPACITY_LOW : (Orbs[index_orb].opacity - opacity_change);
+                }
+            }
+            if(Orbs[ORB_COUNT-1].saturation == SATURATION_MAX && Orbs[ORB_COUNT-1].opacity == STAGE_TWINKLE_OPACITY_LOW)
+            {
+                Serial.println("Entering STAGE_DELAY2");
+                CurrentStage = STAGE_DELAY2;
+            }
         }break;
         case STAGE_DELAY2:
         {
+            delay(STAGE_DELAY2_MS);
+            current_micros = micros();
             CurrentStage = STAGE_TWIST_AND_FADE;
         }break;
         case STAGE_TWIST_AND_FADE:
