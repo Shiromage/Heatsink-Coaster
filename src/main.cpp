@@ -53,18 +53,14 @@ void setup()
     Stage.begin();
     Stage.clear();
     Stage.show();
-    if(power_detect_reading >= POWER_DETECT_LED_REQ)
-    {
-        setupButtons();
-        Effects[CurrentEffectIndex]->init(&Stage);
-        Stage.setBrightness(BrightnessLevels[BrightnessIndex]);
-        delay(1000);
-        Serial.println("Setup complete");
-    }
-    else
+    setupButtons();
+    Effects[CurrentEffectIndex]->init(&Stage);
+    Stage.setBrightness(BrightnessLevels[BrightnessIndex]);
+    delay(1000);
+    Serial.println("Setup complete");
+    if(power_detect_reading < POWER_DETECT_LED_REQ)
     {
         Serial.print("Insufficient power for LEDs: "); Serial.println((float)power_detect_reading * ANALOG_REF_VOLTAGE / ANALOG_MAX_VALUE);
-        while(1);
     }
     brightness_button_debounce_alarm = color_button_debounce_alarm = effect_button_debounce_alarm = 0;
 }
@@ -119,9 +115,22 @@ void loop()
     }
 
     Stage.clear();
-    Effects[CurrentEffectIndex]->step(current_millis - last_millis);
-    Stage.show();
-
+    if(analogRead(POWER_SUPPLY_DETECT_PIN) < POWER_DETECT_LED_REQ) //Insufficient power for LEDs?
+    {
+        Stage.clear();
+        Stage.show();
+        do
+        {
+            delay(1000);
+        }while(analogRead(POWER_SUPPLY_DETECT_PIN) < POWER_DETECT_LED_REQ);
+        Effects[CurrentEffectIndex]->init(&Stage);
+        current_millis = millis() - 1;
+    }
+    else
+    {
+        Effects[CurrentEffectIndex]->step(current_millis - last_millis);
+        Stage.show();
+    }
     last_millis = current_millis;
 }
 
