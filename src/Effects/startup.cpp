@@ -2,7 +2,7 @@
 
 #define ORB_COUNT   6
 //Size in LEDs
-#define ORB_SIZE    2.5
+#define ORB_SIZE    2.2
 
 //Ticks per revolution
 #define ORB_POSITION_ONE_REV    65535
@@ -27,7 +27,7 @@ Adafruit_NeoPixel * Pixels;
 const uint16_t OrbHues[ORB_COUNT] =
 {
     0 * (HUE_MAX / 360), //Red
-    25 * (HUE_MAX / 360), //Orange
+    27 * (HUE_MAX / 360), //Orange
     42 * (HUE_MAX / 360), //Yellow
     95 * (HUE_MAX / 360), //Green
     215 * (HUE_MAX / 360), //Blue
@@ -57,7 +57,7 @@ enum startup_stage
 
 #define STAGE_INTRO_FADE_IN_SPEED   24000
 #define STAGE_INTRO_ORB_SPEED       40000
-#define STAGE_INTRO_MAX_OPACITY     20000
+#define STAGE_INTRO_MAX_OPACITY     18500
 
 #define ORB_0_STOP_POSITION     (ORB_POSITION_ONE_REV / 4)
 #define STAGE_SLOWDOWN_ACCEL    (-30000)
@@ -65,12 +65,15 @@ enum startup_stage
 #define STAGE_DELAY1_MS 1000
 
 #define STAGE_TWINKLE_OPACITY_HIGH  OPACITY_MAX
-#define STAGE_TWINKLE_OPACITY_LOW   (STAGE_TWINKLE_OPACITY_HIGH * 5/8)
-#define STAGE_TWINKLE_TT_OPACITY_HIGH_MS    500
-#define STAGE_TWINKLE_TT_OPACITY_LOW_MS     1000
+#define STAGE_TWINKLE_OPACITY_LOW   (STAGE_TWINKLE_OPACITY_HIGH * 7/16)
+#define STAGE_TWINKLE_TT_OPACITY_HIGH_MS    100
+#define STAGE_TWINKLE_TT_OPACITY_LOW_MS     1200
 #define STAGE_TWINKLE_CONSECUTIVE_ORB_DELAY 300
 
 #define STAGE_DELAY2_MS 600
+
+#define STAGE_TWIST_AND_FADE_ACCEL  450000
+#define STAGE_TWIST_AND_FADE_TT_ZERO_OPACITY_MS 400
 
 enum startup_stage CurrentStage;
 
@@ -196,8 +199,21 @@ void stepStartup(unsigned long millis)
         }break;
         case STAGE_TWIST_AND_FADE:
         {
-            Serial.println("Entering STAGE_END");
-            CurrentStage = STAGE_END;
+            Orbs[0].velocity += delta_micros * STAGE_TWIST_AND_FADE_ACCEL / 1000000;
+            Orbs[0].angle_position += delta_micros * Orbs[0].velocity / 1000000;
+            int32_t opacity_change = delta_micros * (STAGE_TWINKLE_OPACITY_LOW - 0) / (STAGE_TWIST_AND_FADE_TT_ZERO_OPACITY_MS * 1000UL);
+            Orbs[0].opacity = (Orbs[0].opacity - opacity_change < 0) ? 0 : (Orbs[0].opacity - opacity_change);
+            for(index_orb = 1; index_orb < ORB_COUNT; index_orb++)
+            {
+                Orbs[index_orb].opacity = Orbs[0].opacity;
+            }
+            if(Orbs[0].opacity == 0)
+            {
+                CurrentStage = STAGE_END;
+                Serial.println("Entering STAGE_END");
+                break;
+            }
+            rectifyOrbs();
         }break;
         default:
         {
