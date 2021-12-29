@@ -5,10 +5,17 @@
 #include "effects.h"
 
 #define PIXEL_DATA_PIN  12
+#define POWER_SUPPLY_DETECT_PIN A1
 #define BUTTON_INTERRUPT_PIN    2
 #define COLOR_CYCLE_BUTTON_PIN  4
 #define EFFECT_BUTTON_PIN       6
 #define BRIGHTNESS_BUTTON_PIN   8
+
+#define MIN_LED_VOLTAGE 1.55
+#define ANALOG_MAX_VALUE    1024
+#define ANALOG_REF_VOLTAGE  5
+#define POWER_DETECT_LED_REQ    (MIN_LED_VOLTAGE * ANALOG_MAX_VALUE / ANALOG_REF_VOLTAGE)
+
 #define BUTTON_DEBOUNCE_COOLDOWN_MS 40
 
 volatile unsigned long brightness_button_debounce_alarm, color_button_debounce_alarm, effect_button_debounce_alarm;
@@ -35,13 +42,20 @@ void setupButtons();
 
 void setup()
 {
-    //Determine if power from 9V is available. If not, do not power pixels.
+    //Determine if power from Vin is available. If not, do not power pixels.
     Serial.begin(9600);
-    if(1)
+    pinMode(POWER_SUPPLY_DETECT_PIN, INPUT);
+    analogReference(DEFAULT);
+    int16_t power_detect_reading = analogRead(POWER_SUPPLY_DETECT_PIN);
+    Serial.print("Power detect: "); Serial.print(power_detect_reading); Serial.print(" "); Serial.println((float)power_detect_reading * ANALOG_REF_VOLTAGE / ANALOG_MAX_VALUE);
+
+    Stage = *(new Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_DATA_PIN, NEO_GRB + NEO_KHZ800));
+    Stage.begin();
+    Stage.clear();
+    Stage.show();
+    if(power_detect_reading >= POWER_DETECT_LED_REQ)
     {
-        Stage = *(new Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_DATA_PIN, NEO_GRB + NEO_KHZ800));
         setupButtons();
-        Stage.begin();
         Effects[CurrentEffectIndex]->init(&Stage);
         Stage.setBrightness(BrightnessLevels[BrightnessIndex]);
         delay(1000);
@@ -49,6 +63,7 @@ void setup()
     }
     else
     {
+        Serial.print("Insufficient power for LEDs: "); Serial.println((float)power_detect_reading * ANALOG_REF_VOLTAGE / ANALOG_MAX_VALUE);
         while(1);
     }
     brightness_button_debounce_alarm = color_button_debounce_alarm = effect_button_debounce_alarm = 0;
