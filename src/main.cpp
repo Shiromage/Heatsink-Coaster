@@ -12,7 +12,7 @@
 #define BRIGHTNESS_BUTTON_PIN   8
 #define BUTTON_DEBOUNCE_COOLDOWN_MS 40
 
-#define STARTUP_EFFECT_RUNTIME_MS  13000
+#define STARTUP_EFFECT_RUNTIME_MS  15000
 
 volatile unsigned long brightness_button_debounce_alarm, color_button_debounce_alarm, effect_button_debounce_alarm;
 

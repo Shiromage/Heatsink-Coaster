@@ -70,7 +70,7 @@ enum startup_stage
 #define STAGE_TWINKLE_OPACITY_LOW   (STAGE_TWINKLE_OPACITY_HIGH * 7/16)
 #define STAGE_TWINKLE_TT_OPACITY_HIGH_MS    100
 #define STAGE_TWINKLE_TT_OPACITY_LOW_MS     1200
-#define STAGE_TWINKLE_CONSECUTIVE_ORB_DELAY 300
+#define STAGE_TWINKLE_CONSECUTIVE_ORB_DELAY_MS 180
 
 #define STAGE_DELAY2_MS 1600
 
@@ -191,7 +191,15 @@ void stepStartup(unsigned long millis)
         case STAGE_TWINKLE:
         {
             uint32_t opacity_change;
-            for(index_orb = 0; index_orb < ORB_COUNT; index_orb++)
+            static int32_t orb_trigger_timer = 0;
+            static int active_orbs = 0;
+            orb_trigger_timer -= (int32_t)delta_micros;
+            if(orb_trigger_timer <= 0 && active_orbs < ORB_COUNT)
+            {
+                active_orbs++;
+                orb_trigger_timer = (int32_t)STAGE_TWINKLE_CONSECUTIVE_ORB_DELAY_MS * (int32_t)1000;
+            }
+            for(index_orb = 0; index_orb < active_orbs; index_orb++)
             {
                 if(Orbs[index_orb].saturation < SATURATION_MAX)
                 {
@@ -209,6 +217,8 @@ void stepStartup(unsigned long millis)
             }
             if(Orbs[ORB_COUNT-1].saturation == SATURATION_MAX && Orbs[ORB_COUNT-1].opacity == STAGE_TWINKLE_OPACITY_LOW)
             {
+                orb_trigger_timer = 0;
+                active_orbs = 0;
                 Serial.println("Entering STAGE_DELAY2");
                 CurrentStage = STAGE_DELAY2;
             }
