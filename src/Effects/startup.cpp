@@ -47,6 +47,7 @@ const uint32_t OrbColors[ORB_COUNT] =
 enum startup_stage
 {
     STAGE_INTRO,            // White orbs fade in, orbiting the center
+    STAGE_SEEK,             // Search for the point at which slowdown begins
     STAGE_SLOWDOWN,         // The orbs slow down to a stop, with Orbs[0] being at the 90 degree position
     STAGE_DELAY1,           // Delay
     STAGE_TWINKLE,          // The orbs change color, one after the other, briefly changing brightness as they do.
@@ -55,12 +56,13 @@ enum startup_stage
     STAGE_END
 };
 
-#define STAGE_INTRO_FADE_IN_SPEED   24000
+#define STAGE_INTRO_FADE_IN_SPEED   20000
 #define STAGE_INTRO_ORB_SPEED       40000
 #define STAGE_INTRO_MAX_OPACITY     18500
 
-#define ORB_0_STOP_POSITION     (ORB_POSITION_ONE_REV / 4)
+#define STAGE_SLOWDOWN_STOP_POSITION     (ORB_POSITION_ONE_REV * 263.5 / 360)
 #define STAGE_SLOWDOWN_ACCEL    (-30000)
+#define STAGE_SLOWDOWN_DISTANCE_UNTIL_STOP  (STAGE_INTRO_ORB_SPEED * ((float)STAGE_INTRO_ORB_SPEED / (float)abs(STAGE_SLOWDOWN_ACCEL)) / 2)
 
 #define STAGE_DELAY1_MS 1000
 
@@ -70,7 +72,7 @@ enum startup_stage
 #define STAGE_TWINKLE_TT_OPACITY_LOW_MS     1200
 #define STAGE_TWINKLE_CONSECUTIVE_ORB_DELAY 300
 
-#define STAGE_DELAY2_MS 600
+#define STAGE_DELAY2_MS 1600
 
 #define STAGE_TWIST_AND_FADE_ACCEL  450000
 #define STAGE_TWIST_AND_FADE_TT_ZERO_OPACITY_MS 400
@@ -91,6 +93,7 @@ Orb Orbs[ORB_COUNT];
 void rectifyOrbs();
 void drawOrbs();
 uint32_t apply_brightness(uint8_t, uint32_t);
+uint32_t angular_distance(int32_t, int32_t);
 uint8_t convert_position_to_bucket(int32_t);
 int32_t convert_led_to_position(uint8_t);
 uint8_t convert_bucket_to_led(int32_t);
@@ -127,16 +130,16 @@ void stepStartup(unsigned long millis)
     {
         case STAGE_INTRO:
         {
-            index_orb = -1;
+            index_orb = ORB_COUNT;
             do
             {
-                index_orb++;
+                index_orb--;
                 target_orb = &Orbs[index_orb];
-            }while((target_orb->opacity == STAGE_INTRO_MAX_OPACITY) && (index_orb < ORB_COUNT));
-            if(index_orb >= ORB_COUNT)
+            }while((target_orb->opacity == STAGE_INTRO_MAX_OPACITY) && (index_orb >= 0));
+            if(index_orb < 0)
             {
-                CurrentStage = STAGE_SLOWDOWN;
-                Serial.println("Entering STAGE_SLOWDOWN");
+                CurrentStage = STAGE_SEEK;
+                Serial.println("Entering STAGE_SEEK");
                 break;
             }
             uint32_t opacity_change = delta_micros * STAGE_INTRO_FADE_IN_SPEED / 1000000;
@@ -144,6 +147,25 @@ void stepStartup(unsigned long millis)
             target_orb->opacity = (target_orb->opacity + opacity_change >= STAGE_INTRO_MAX_OPACITY) ?
                 STAGE_INTRO_MAX_OPACITY : (target_orb->opacity + opacity_change);
             Orbs[0].angle_position += STAGE_INTRO_ORB_SPEED * delta_micros / 1000000;
+            rectifyOrbs();
+        }break;
+        case STAGE_SEEK:
+        {
+            Orbs[0].angle_position += Orbs[0].velocity * delta_micros / 1000000;
+            static bool trigger = false;
+            if(angular_distance(Orbs[0].angle_position, STAGE_SLOWDOWN_STOP_POSITION) <= STAGE_SLOWDOWN_DISTANCE_UNTIL_STOP)
+            {
+                if(trigger)
+                {
+                    trigger = false;
+                    CurrentStage = STAGE_SLOWDOWN;
+                    Serial.println("Entering STAGE_SLOWDOWN");
+                }
+            }
+            else
+            {
+                trigger = true;
+            }
             rectifyOrbs();
         }break;
         case STAGE_SLOWDOWN:
@@ -228,6 +250,10 @@ void stepStartup(unsigned long millis)
 //Orbs will be evenly distributed
 void rectifyOrbs()
 {
+    while(Orbs[0].angle_position < 0)
+        Orbs[0].angle_position += ORB_POSITION_ONE_REV;
+    while(Orbs[0].angle_position > (ORB_POSITION_ONE_REV - 1))
+        Orbs[0].angle_position -= ORB_POSITION_ONE_REV;
     const int32_t base_position = Orbs[0].angle_position;
     for(int orb_index = 1; orb_index < ORB_COUNT; orb_index++)
     {
@@ -301,6 +327,18 @@ uint32_t apply_brightness(uint8_t brightness, uint32_t base_color)
     blue = (blue * brightness) / BRIGHTNESS_MAX;
 
     return Adafruit_NeoPixel::Color(red, green, blue);
+}
+
+uint32_t angular_distance(int32_t from, int32_t to)
+{
+    if(from <= to)
+    {
+        return to - from;
+    }
+    else
+    {
+        return (ORB_POSITION_ONE_REV - from) + to;
+    }
 }
 
 uint8_t convert_position_to_bucket(int32_t position)
