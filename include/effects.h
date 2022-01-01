@@ -3,9 +3,8 @@
 #ifndef _EFFECTS_H
 #define _EFFECTS_H
 
+#include "system.h"
 #include <Adafruit_NeoPixel.h>
-
-#define PIXEL_COUNT 24
 
 struct effect_s
 {

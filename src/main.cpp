@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
+#include "system.h"
 #include "heap.h"
 #include "effects.h"
 
@@ -18,10 +19,13 @@
 
 #define BUTTON_DEBOUNCE_COOLDOWN_MS 40
 
+#define STARTUP_EFFECT_RUNTIME_MS  15000
+
 volatile unsigned long brightness_button_debounce_alarm, color_button_debounce_alarm, effect_button_debounce_alarm;
 
 Adafruit_NeoPixel Stage;
 
+extern struct effect_s StartupEffect;
 extern struct effect_s StaticColorEffect;
 extern struct effect_s OrbitEffect;
 extern struct effect_s RainbowEffect;
@@ -36,7 +40,7 @@ struct effect_s * Effects[] =
 uint8_t CurrentEffectIndex = 0;
 
 const int BrightnessLevels[] = {0, 12, 30, 50, 180, 255};
-uint8_t BrightnessIndex = 1;
+uint8_t BrightnessIndex = 3;
 
 void setupButtons();
 
@@ -53,6 +57,22 @@ void setup()
     Stage.begin();
     Stage.clear();
     Stage.show();
+
+    Stage.setBrightness(255);
+    StartupEffect.init(&Stage);
+    unsigned long end_startup_time = millis();
+    unsigned long current_time = end_startup_time;
+    end_startup_time += STARTUP_EFFECT_RUNTIME_MS;
+    do
+    {
+        unsigned long old_time = current_time;
+        current_time = millis();
+        Stage.clear();
+        StartupEffect.step(current_time - old_time);
+        Stage.show();
+    }while(current_time < end_startup_time);
+
+    brightness_button_debounce_alarm = color_button_debounce_alarm = effect_button_debounce_alarm = 0;
     setupButtons();
     Effects[CurrentEffectIndex]->init(&Stage);
     Stage.setBrightness(BrightnessLevels[BrightnessIndex]);
@@ -62,7 +82,6 @@ void setup()
     {
         Serial.print("Insufficient power for LEDs: "); Serial.println((float)power_detect_reading * ANALOG_REF_VOLTAGE / ANALOG_MAX_VALUE);
     }
-    brightness_button_debounce_alarm = color_button_debounce_alarm = effect_button_debounce_alarm = 0;
 }
 
 void loop()
