@@ -1,9 +1,11 @@
-//effects.h
+// effects.h
+// Chase Baker 2022
 
 #ifndef _EFFECTS_H
 #define _EFFECTS_H
 
 #include "system.h"
+#include "colors.h"
 #include <Adafruit_NeoPixel.h>
 
 struct effect_s

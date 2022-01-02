@@ -1,4 +1,5 @@
-//heap.h
+// heap.h
+// Chase Baker 2022
 
 #ifndef _HEAP_H
 #define _HEAP_H

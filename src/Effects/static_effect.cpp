@@ -1,3 +1,6 @@
+// static_effect.cpp
+// Chase Baker 2022
+
 #include "effects.h"
 
 void initStaticEffect(Adafruit_NeoPixel *);
@@ -12,36 +15,22 @@ struct effect_s StaticColorEffect =
 };
 
 static Adafruit_NeoPixel * stage;
-
-uint32_t static_colors[] =
-{
-    Adafruit_NeoPixel::Color(255, 255, 255),
-    Adafruit_NeoPixel::Color(255, 200, 0),
-    Adafruit_NeoPixel::Color(255, 0, 0),
-    Adafruit_NeoPixel::Color(0, 255, 0),
-    Adafruit_NeoPixel::Color(0, 0, 255),
-    Adafruit_NeoPixel::Color(0, 255, 255),
-    Adafruit_NeoPixel::Color(255, 0, 255)
-};
 uint8_t current_color_index = 0;
 
 void initStaticEffect(Adafruit_NeoPixel * pixels)
 {
     stage = pixels;
-    Serial.println("Static setup");
 }
 
 void stepStaticEffect(unsigned long millis)
 {
-    stage->fill(static_colors[current_color_index]);
+    stage->fill(SystemColors[current_color_index]);
 }
 
 void changeStaticColor()
 {
-    if(++current_color_index == sizeof(static_colors) / sizeof(uint32_t))
+    if(++current_color_index == COLOR_COUNT)
     {
         current_color_index = 0;
     }
-    Serial.print("color index is now ");
-    Serial.println(current_color_index);
 }

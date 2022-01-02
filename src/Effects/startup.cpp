@@ -24,26 +24,6 @@ struct effect_s StartupEffect =
 
 Adafruit_NeoPixel * Pixels;
 
-const uint16_t OrbHues[ORB_COUNT] =
-{
-    0 * (HUE_MAX / 360), //Red
-    27 * (HUE_MAX / 360), //Orange
-    42 * (HUE_MAX / 360), //Yellow
-    95 * (HUE_MAX / 360), //Green
-    215 * (HUE_MAX / 360), //Blue
-    310 * (HUE_MAX / 360), //Purple
-};
-
-const uint32_t OrbColors[ORB_COUNT] =
-{
-    Adafruit_NeoPixel::ColorHSV(OrbHues[0], 255, 255), //Red
-    Adafruit_NeoPixel::ColorHSV(OrbHues[1], 255, 255), //Yellow
-    Adafruit_NeoPixel::ColorHSV(OrbHues[2], 255, 255), //Orange
-    Adafruit_NeoPixel::ColorHSV(OrbHues[3], 255, 255), //Green
-    Adafruit_NeoPixel::ColorHSV(OrbHues[4], 255, 255), //Blue
-    Adafruit_NeoPixel::ColorHSV(OrbHues[5], 255, 220)  //Purple
-};
-
 enum startup_stage
 {
     STAGE_INTRO,            // White orbs fade in, orbiting the center
@@ -89,6 +69,15 @@ typedef struct
 } Orb;
 
 Orb Orbs[ORB_COUNT];
+const uint16_t OrbHues[ORB_COUNT] =
+{
+    SystemHues[COLOR_RED],
+    SystemHues[COLOR_ORANGE],
+    SystemHues[COLOR_YELLOW],
+    SystemHues[COLOR_GREEN],
+    SystemHues[COLOR_BLUE],
+    SystemHues[COLOR_PURPLE]
+};
 
 void rectifyOrbs();
 void drawOrbs();
@@ -107,11 +96,10 @@ void initStartup(Adafruit_NeoPixel * pixels)
     {
         Orbs[orb_index].angle_position = orb_index * ORB_POSITION_ONE_REV / ORB_COUNT;
         Orbs[orb_index].velocity = STAGE_INTRO_ORB_SPEED;
-        Orbs[orb_index].color = Adafruit_NeoPixel::Color(255, 255, 255); //White
+        Orbs[orb_index].color = SystemColors[COLOR_WHITE];
         Orbs[orb_index].opacity = 0;
         Orbs[orb_index].saturation = 0;
     }
-    Serial.println("Setup of startup sketch complete.");
 }
 
 void stepStartup(unsigned long millis)
@@ -124,7 +112,7 @@ void stepStartup(unsigned long millis)
     }
     unsigned long delta_micros = current_micros - last_micros;
     Orb * target_orb;
-    volatile int8_t index_orb; //Arduino compiler is shit, so I need this to be volatile. Without it, extremely unexpected behavior occurs.
+    volatile int8_t index_orb; //Arduino compiler is rubbish, so I need this to be volatile. Without it, extremely unexpected behavior occurs.
 
     switch(CurrentStage)
     {
@@ -139,7 +127,6 @@ void stepStartup(unsigned long millis)
             if(index_orb < 0)
             {
                 CurrentStage = STAGE_SEEK;
-                Serial.println("Entering STAGE_SEEK");
                 break;
             }
             uint32_t opacity_change = delta_micros * STAGE_INTRO_FADE_IN_SPEED / 1000000;
@@ -159,7 +146,6 @@ void stepStartup(unsigned long millis)
                 {
                     trigger = false;
                     CurrentStage = STAGE_SLOWDOWN;
-                    Serial.println("Entering STAGE_SLOWDOWN");
                 }
             }
             else
@@ -176,7 +162,6 @@ void stepStartup(unsigned long millis)
             if((Orbs[0].velocity < 0 && velocity_change < 0) || (Orbs[0].velocity >= 0 && velocity_change > 0))
             {
                 Orbs[0].velocity = 0;
-                Serial.println("Entering STAGE_DELAY1");
                 CurrentStage = STAGE_DELAY1;
             }
             rectifyOrbs();
@@ -185,7 +170,6 @@ void stepStartup(unsigned long millis)
         {
             delay(STAGE_DELAY1_MS);
             current_micros = micros();
-            Serial.println("Entering STAGE_TWINKLE");
             CurrentStage = STAGE_TWINKLE;
         }break;
         case STAGE_TWINKLE:
@@ -219,7 +203,6 @@ void stepStartup(unsigned long millis)
             {
                 orb_trigger_timer = 0;
                 active_orbs = 0;
-                Serial.println("Entering STAGE_DELAY2");
                 CurrentStage = STAGE_DELAY2;
             }
         }break;
@@ -242,7 +225,6 @@ void stepStartup(unsigned long millis)
             if(Orbs[0].opacity == 0)
             {
                 CurrentStage = STAGE_END;
-                Serial.println("Entering STAGE_END");
                 break;
             }
             rectifyOrbs();
@@ -339,6 +321,7 @@ uint32_t apply_brightness(uint8_t brightness, uint32_t base_color)
     return Adafruit_NeoPixel::Color(red, green, blue);
 }
 
+//Calculates distance between two angular positions while considering that position overflows to 0 at 360 degrees.
 uint32_t angular_distance(int32_t from, int32_t to)
 {
     if(from <= to)

@@ -1,11 +1,11 @@
-//orbit.cpp
-//Chase Baker
+// orbit.cpp
+// Chase Baker
 
 #include "effects.h"
 
 #define ORB_COUNT   3
-#define ORB_ANGULAR_SPEED   20
-#define ORB_SIZE    50
+#define ORB_ANGULAR_SPEED   25
+#define ORB_SIZE    75
 #define ORB_SPACING (360 / ORB_COUNT)
 #define BACKGROUND_LIGHT_INTENSITY  35
 
@@ -25,15 +25,7 @@ struct effect_s OrbitEffect =
 
 static Adafruit_NeoPixel * orbit_stage;
 
-static uint32_t orb_color_index;
-static const uint32_t orb_colors[] =
-{
-    Adafruit_NeoPixel::gamma32(Adafruit_NeoPixel::Color(255, 255, 255)),
-    Adafruit_NeoPixel::gamma32(Adafruit_NeoPixel::Color(255, 0, 0)),
-    Adafruit_NeoPixel::gamma32(Adafruit_NeoPixel::Color(0, 255, 0)),
-    Adafruit_NeoPixel::gamma32(Adafruit_NeoPixel::Color(0, 0, 255)),
-    Adafruit_NeoPixel::gamma32(Adafruit_NeoPixel::Color(255, 0, 255))
-};
+static uint32_t orb_color_index = 0;
 static uint32_t background_fill_color;
 
 typedef struct
@@ -46,12 +38,11 @@ static orb_s Orbs[ORB_COUNT];
 void initOrbitEffect(Adafruit_NeoPixel * pixels)
 {
     orbit_stage = pixels;
-    orb_color_index = 0;
     Orbs[0].angular_position = 0;
     uint32_t red, green, blue;
-    red = orb_colors[orb_color_index] & 0x00FF0000;
-    green = orb_colors[orb_color_index] & 0x0000FF00;
-    blue = orb_colors[orb_color_index] & 0xFF;
+    red = SystemColors[orb_color_index] & 0x00FF0000;
+    green = SystemColors[orb_color_index] & 0x0000FF00;
+    blue = SystemColors[orb_color_index] & 0xFF;
     red = red >> 16;
     green = green >> 8;
 
@@ -63,14 +54,14 @@ void initOrbitEffect(Adafruit_NeoPixel * pixels)
 
 void changeOrbitColor()
 {
-    if(++orb_color_index >= sizeof(orb_colors) / sizeof(uint32_t))
+    if(++orb_color_index >= COLOR_COUNT)
     {
         orb_color_index = 0;
     }
     uint32_t red, green, blue;
-    red = orb_colors[orb_color_index] & 0x00FF0000;
-    green = orb_colors[orb_color_index] & 0x0000FF00;
-    blue = orb_colors[orb_color_index] & 0xFF;
+    red = SystemColors[orb_color_index] & 0x00FF0000;
+    green = SystemColors[orb_color_index] & 0x0000FF00;
+    blue = SystemColors[orb_color_index] & 0xFF;
     red = red >> 16;
     green = green >> 8;
 
@@ -116,7 +107,7 @@ uint8_t calc_brightness(int8_t bucket_index, float angular_position)
     }
     else
     {
-        return (uint8_t)map(abs(bucket_bisect_point - angular_position), 0.0, ORB_SIZE / 2.0, 255, BACKGROUND_LIGHT_INTENSITY);
+        return (uint8_t)map(abs(bucket_bisect_point - angular_position), 0.0, ORB_SIZE / 2, 255, BACKGROUND_LIGHT_INTENSITY);
     }
 }
 
@@ -127,16 +118,16 @@ void paint_bucket(int8_t bucket_index, uint8_t brightness)
     while(bucket_index < 0)
         bucket_index += PIXEL_COUNT;
     uint32_t red, green, blue;
-    red = orb_colors[orb_color_index] & 0x00FF0000;
-    green = orb_colors[orb_color_index] & 0x0000FF00;
-    blue = orb_colors[orb_color_index] & 0xFF;
+    red = SystemColors[orb_color_index] & 0x00FF0000;
+    green = SystemColors[orb_color_index] & 0x0000FF00;
+    blue = SystemColors[orb_color_index] & 0xFF;
 
     red = red >> 16;
     green = green >> 8;
 
-    red = (red * brightness) / 255.0; //Scale element with brightness
-    green = (green * brightness) / 255.0;
-    blue = (blue * brightness) / 255.0;
+    red = (red * brightness) / 255; //Scale element with brightness
+    green = (green * brightness) / 255;
+    blue = (blue * brightness) / 255;
 
     orbit_stage->setPixelColor(bucket_index, Adafruit_NeoPixel::Color(red, green, blue));
 }

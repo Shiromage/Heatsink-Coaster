@@ -1,16 +1,12 @@
+// main.cpp
+// Chase Baker 2022
+
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
 #include "system.h"
 #include "heap.h"
 #include "effects.h"
-
-#define PIXEL_DATA_PIN  12
-#define POWER_SUPPLY_DETECT_PIN A1
-#define BUTTON_INTERRUPT_PIN    2
-#define COLOR_CYCLE_BUTTON_PIN  4
-#define EFFECT_BUTTON_PIN       5
-#define BRIGHTNESS_BUTTON_PIN   6
 
 #define MIN_LED_VOLTAGE 1.55
 #define ANALOG_MAX_VALUE    1024
@@ -20,6 +16,9 @@
 #define BUTTON_DEBOUNCE_COOLDOWN_MS 40
 
 #define STARTUP_EFFECT_RUNTIME_MS  15000
+
+#define POST_STARTUP_FADE_MS   700
+#define STARTUP_OPACITY_CONTROL_DISABLE 255
 
 volatile unsigned long brightness_button_debounce_alarm, color_button_debounce_alarm, effect_button_debounce_alarm;
 
@@ -39,14 +38,16 @@ struct effect_s * Effects[] =
 };
 uint8_t CurrentEffectIndex = 0;
 
-const int BrightnessLevels[] = {0, 12, 30, 50, 180, 255};
-uint8_t BrightnessIndex = 3;
+const int BrightnessLevels[] = {0, 15, 40, 75, 150, 255};
+static uint8_t BrightnessIndex = 3;
+static uint16_t StartupOpacity;
+
+static unsigned long last_millis;
 
 void setupButtons();
 
 void setup()
 {
-    //Determine if power from Vin is available. If not, do not power pixels.
     Serial.begin(9600);
     pinMode(POWER_SUPPLY_DETECT_PIN, INPUT);
     analogReference(DEFAULT);
@@ -68,25 +69,30 @@ void setup()
         unsigned long old_time = current_time;
         current_time = millis();
         Stage.clear();
+        if(analogRead(POWER_SUPPLY_DETECT_PIN) < POWER_DETECT_LED_REQ) //Insufficient power for LEDs?
+        {
+            Stage.show();
+            delay(5);
+            continue;
+        }
         StartupEffect.step(current_time - old_time);
         Stage.show();
     }while(current_time < end_startup_time);
+    StartupOpacity = 0;
 
     brightness_button_debounce_alarm = color_button_debounce_alarm = effect_button_debounce_alarm = 0;
     setupButtons();
     Effects[CurrentEffectIndex]->init(&Stage);
-    Stage.setBrightness(BrightnessLevels[BrightnessIndex]);
-    delay(1000);
-    Serial.println("Setup complete");
+    Stage.setBrightness(0);
     if(power_detect_reading < POWER_DETECT_LED_REQ)
     {
         Serial.print("Insufficient power for LEDs: "); Serial.println((float)power_detect_reading * ANALOG_REF_VOLTAGE / ANALOG_MAX_VALUE);
     }
+    last_millis = millis();
 }
 
 void loop()
 {
-    static unsigned long last_millis = 0;
     unsigned long current_millis = millis();
 
     const unsigned long brightness_alarm = brightness_button_debounce_alarm;
@@ -97,7 +103,6 @@ void loop()
     {
         if(!digitalRead(BRIGHTNESS_BUTTON_PIN))
         {
-            Serial.println("Changing Brightness...");
             if(++BrightnessIndex >= sizeof(BrightnessLevels) / sizeof(const int))
             {
                 BrightnessIndex = 0;
@@ -110,7 +115,6 @@ void loop()
     {
         if(!digitalRead(COLOR_CYCLE_BUTTON_PIN))
         {
-            Serial.println("Changing Color...");
             if(Effects[CurrentEffectIndex]->changeColor != NULL)
                 Effects[CurrentEffectIndex]->changeColor();
         }
@@ -120,7 +124,6 @@ void loop()
     {
         if(!digitalRead(EFFECT_BUTTON_PIN))
         {
-            Serial.println("Changing Effect...");
             Stage.clear();
             if(++CurrentEffectIndex >= sizeof(Effects) / sizeof(struct effect_s *))
             {
@@ -134,12 +137,27 @@ void loop()
     }
 
     Stage.clear();
+    if(StartupOpacity < BrightnessLevels[BrightnessIndex]) //If startup animation recently finished, fade in the first effect
+    {
+        StartupOpacity += (current_millis - last_millis) * 255U / POST_STARTUP_FADE_MS;
+        if(StartupOpacity >= BrightnessLevels[BrightnessIndex])
+        {
+            StartupOpacity = STARTUP_OPACITY_CONTROL_DISABLE;
+            Stage.setBrightness(BrightnessLevels[BrightnessIndex]);
+        }
+        else
+        {
+            Stage.setBrightness(StartupOpacity);
+        }
+        delay(1);
+    }
     if(analogRead(POWER_SUPPLY_DETECT_PIN) < POWER_DETECT_LED_REQ) //Insufficient power for LEDs?
     {
         Stage.clear();
         Stage.show();
         do
         {
+            Serial.println("Insufficient power for LEDs: ");
             delay(1000);
         }while(analogRead(POWER_SUPPLY_DETECT_PIN) < POWER_DETECT_LED_REQ);
         Effects[CurrentEffectIndex]->init(&Stage);
@@ -168,7 +186,6 @@ void handleButtons()
     {
         effect_button_debounce_alarm = alarm_time;
     }
-    //Serial.println("Button press detected.");
 }
 
 void setupButtons()
